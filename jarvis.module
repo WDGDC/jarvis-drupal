@@ -1,0 +1,116 @@
+<?php 
+
+function jarvis_init() {
+
+  // Load Jarvis javascript
+  drupal_add_js(drupal_get_path('module', 'jarvis') . '/js/jquery-ui-1.10.2.custom.js');
+  drupal_add_js(drupal_get_path('module', 'jarvis') . '/js/jarvis.js');
+
+  // Load Jarvis CSS
+  drupal_add_css(drupal_get_path('module', 'jarvis') . '/css/jquery-ui-1.10.2.custom.css');
+  drupal_add_css(drupal_get_path('module', 'jarvis') . '/css/jarvis.css');
+  
+}
+
+
+function jarvis_menu() {  
+  $items = array();
+  // Jarvis node search
+  $items['jarvis/autocomplete'] = array(
+    'page callback' => '_jarvis_autocomplete',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK
+  );
+  // Jarvis menu items
+  $items['jarvis/autocomplete2'] = array(
+    'page callback' => 'fnAjaxTest',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK
+  );
+
+  return $items;
+}
+
+function fnAjaxTest($string = null) {
+
+  // Get administrative menus to add to search
+  $jarvisMenu = menu_tree_all_data('management');
+  $jarvisMenu2 = menu_tree_all_data('user-menu');
+
+  // Combine management and user menu
+  $jarvisMenu = array_merge_recursive($jarvisMenu, $jarvisMenu2);
+
+  echo json_encode($jarvisMenu, JSON_PRETTY_PRINT);
+}
+
+
+
+function _jarvis_autocomplete($string = null) {
+
+  echo( fnGetSearchResults() );
+
+}
+
+function like_escape($text) {
+  return str_replace(array("%", "_"), array("\\%", "\\_"), $text);
+}
+
+function fnGetSearchResults() {
+
+  $_REQUEST['q'] = isset($_REQUEST['q']) ? $_REQUEST['q'] : '';
+
+  $srch_qry = like_escape($_REQUEST['q']);
+  $srch_escaped_spaces = str_replace(' ', '%', $srch_qry);
+
+  // Search DB for nodes with related titles.  Sort by relevance of search phrase related to title.
+  $strQry = "   SELECT \n" . 
+            "     node.nid as 'id', \n" . 
+            "     node.type as 'type', \n" . 
+            "     node.title as 'title', \n" . 
+            "     'node' as 'kind',  \n" . 
+            "     node.`status`, \n" . 
+            "      ((LENGTH(node.title) - LENGTH(REPLACE(LOWER(node.title), LOWER('". $srch_qry ."'), ''))) / LENGTH(node.title)) as 'relv_title' \n" . 
+            "   FROM \n" . 
+            "     node \n" . 
+            "     left JOIN taxonomy_index ON node.nid = taxonomy_index.nid \n" . 
+            "     LEFT JOIN taxonomy_term_data ON taxonomy_index.tid = taxonomy_term_data.tid \n" . 
+            "   WHERE \n" . 
+            "     node.title LIKE '%". $srch_escaped_spaces ."%' OR  \n" . 
+            "     node.nid = '". $srch_escaped_spaces ."' OR  \n" . 
+            "     taxonomy_term_data.`name` LIKE '%". $srch_escaped_spaces ."%'  \n" . 
+            "   ORDER BY relv_title desc ";
+
+    $result = db_query($strQry);
+
+    $results = $result->fetchAll();
+
+    $arrRtrn = array(
+        'results' => array(), 
+        'types' => array(), 
+        'query' => $strQry
+      );
+
+  foreach($results as $itmIdx => $itmRrd) {
+    $tmpType = $itmRrd->type;
+    $tmpKind = $itmRrd->kind;
+    $tmpId = $itmRrd->id;
+
+    if( !isset($arrRtrn['types'][ $tmpType ]) ){
+      $arrRtrn['types'][ $tmpType ] = array();
+    }
+
+    $arrRtrn['types'][ $tmpType ][ $tmpId ] = $itmIdx;
+
+    $tmpArr = (array) $itmRrd;
+
+    // Build link for nodes
+    if($tmpArr['kind'] == 'node') {
+      $nodeEdit = $tmpArr['id'];
+      $tmpArr['edit_url'] = 'node/' . $nodeEdit . '/edit';
+    }
+    
+    $arrRtrn['results'][] = $tmpArr;
+  }
+
+  return json_encode($arrRtrn);
+}

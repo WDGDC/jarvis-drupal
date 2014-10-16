@@ -1,0 +1,115 @@
+/***************************
+	 Jarvis specific styles 
+***************************/
+
+#jarvis-overlay {
+	background: #000;
+	height: 100%;
+	left: 0;
+	opacity: 0.5;
+	position: fixed;
+	top: 0;
+	width: 100%;
+	z-index: 1000;
+}
+
+#jarvis-container {
+	background: #ebebeb;
+	border-radius: 5px;
+	box-sizing: border-box;
+	font-family: Helvetica, Arial, sans-serif;
+	left: 50%;
+	margin: 0 0 0 -260px;
+	padding: 10px;
+	position: fixed;
+	top: 25%;
+	width: 520px;
+	z-index: 1001;
+}
+
+#jarvis-text {
+	background: #d0d0d0;
+	border: 0;
+	border-radius: 5px;
+	font-size: 18px;
+	box-sizing: border-box;
+	margin: 0;
+	padding: 20px;
+	width: 100%;
+}
+#jarvis-footer {
+	padding: 8px 0 0 0;
+	font-size: 14px;
+	margin: 0 10px;
+}
+#jarvis-container .ui-autocomplete {
+	background: none;
+	border: 0;
+	left: 0 !important;
+	margin-top: 10px;
+	padding: 0;
+	position: relative !important;
+	top: 0 !important;
+	width: auto !important;
+	float: none;
+}
+
+#jarvis-container .ui-menu-item {
+	border-bottom: 1px solid #d6d6d6;
+}
+
+#jarvis-container .ui-menu-item a {
+	border: 1px solid #ebebeb;
+	display: block;
+	line-height 1;
+	padding: 10px;
+	transition: 150ms linear;
+	height: auto;
+	text-align: left !important;
+	color: #008EB1;
+	font-size: 16px;
+	margin: 0 !important;
+}
+
+#jarvis-container .ui-menu-item span.jarvis-type {
+	color: #858585;
+	font-size: 14px;
+	text-transform: capitalize;
+}
+
+#jarvis-container .ui-menu-item:first-child {
+	border-top: 0;
+}
+
+#jarvis-container .ui-state-focus a,
+#jarvis-container .ui-menu-item a:hover,
+.ui-menu .ui-menu-item a.ui-state-focus {
+	background: #ddd;
+	border: 1px solid #d6d6d6;
+}
+
+.ui-autocomplete {
+    max-height: 294px;
+    overflow-y: auto;
+    /* prevent horizontal scrollbar */
+    overflow-x: hidden;
+    /* add padding to account for vertical scrollbar */
+    padding-right: 20px;
+}
+
+#jarvis-text.working {
+	background-image: url("../images/jarvis-spin.gif");
+	background-position: 97% center;
+	background-repeat: no-repeat;
+	background-size: auto auto;
+}
+
+/* IE 6 doesn't support max-height
+ * we use height instead, but this forces the menu to always be this tall
+ */
+* html .ui-autocomplete {
+    height: 294px;
+}
+.jarvis-node-type {
+	text-transform: capitalize;
+}
