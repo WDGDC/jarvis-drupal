@@ -22,3 +22,9 @@ Coming Soon
 ** HOW TO USE JARVIS **
 
 By using the Jarvis hotkey, “/“ (backslash) a search overlay will be prompted.  Start by entering your search terms.  You can search for node titles or admin pages and Jarvis will begin to autocomplete.  You can use mouse up/down to view desired result and hit Enter or use your mouse to scroll.  
+
+
+** AUTHORS **
+David Everett
+Kurtis Shaner
+Grant Skalak
