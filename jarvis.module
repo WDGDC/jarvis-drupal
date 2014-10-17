@@ -1,5 +1,7 @@
 <?php 
 
+
+/* Load javascript and css specific to jarvis */
 function jarvis_init() {
 
   // Load Jarvis javascript
@@ -12,8 +14,9 @@ function jarvis_init() {
   
 }
 
+/* Define page callbacks */
+function jarvis_menu() {
 
-function jarvis_menu() {  
   $items = array();
   // Jarvis node search
   $items['jarvis/autocomplete'] = array(
@@ -31,9 +34,10 @@ function jarvis_menu() {
   return $items;
 }
 
+
+/* Get menu items for management and user links */
 function fnAjaxTest($string = null) {
 
-  // Get administrative menus to add to search
   $jarvisMenu = menu_tree_all_data('management');
   $jarvisMenu2 = menu_tree_all_data('user-menu');
 
@@ -41,10 +45,11 @@ function fnAjaxTest($string = null) {
   $jarvisMenu = array_merge_recursive($jarvisMenu, $jarvisMenu2);
 
   echo json_encode($jarvisMenu, JSON_PRETTY_PRINT);
+
 }
 
 
-
+/* Return search results */
 function _jarvis_autocomplete($string = null) {
 
   echo( fnGetSearchResults() );
@@ -55,6 +60,7 @@ function like_escape($text) {
   return str_replace(array("%", "_"), array("\\%", "\\_"), $text);
 }
 
+/* Jarvis search query */
 function fnGetSearchResults() {
 
   $_REQUEST['q'] = isset($_REQUEST['q']) ? $_REQUEST['q'] : '';
