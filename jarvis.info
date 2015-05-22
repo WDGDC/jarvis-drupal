@@ -1,4 +1,4 @@
 name = Jarvis
-description = Allows for quick search on the Drupal back-end of both content and menu links. 
+description = Jarvis is your administration assistant, putting Drupal at your fingertips.
+package = Search
 core = 7.x
-package = Jarvis
