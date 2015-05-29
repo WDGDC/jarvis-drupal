@@ -9,7 +9,9 @@
  */
 class Jarvis {
 
-	private $hotkey;
+  private $init = false;
+	public $hotkey;
+  public $ajax_search;
 
   /**
    * Singleton instance
@@ -18,7 +20,6 @@ class Jarvis {
 
   /**
    * Singleton
-   * @return Plugin
    */
   public static function instance() {
     if (!self::$instance) {
@@ -27,94 +28,146 @@ class Jarvis {
     return self::$instance;
   }
 
+  /**
+   * Init Jarvis
+   */
   public function init() {
+    if ( $this->init ) return;
+    $this->init = true;
+
     // Hotkey is '/'
     $this->hotkey = 191;
+    // Ajax search endpoint
+    $this->ajax_search = 'jarvis/autocomplete';
   }
 
+  /**
+   * Localize Javascript
+   * @return string to be embedded with JS
+   */
   public function localize() {
     $jarvis = array(
       'hotkey' => $this->hotkey,
-      'menus' => null
+      'ajax_search' => url($this->ajax_search),
+      'menu_items' => $this->menu_items(),
     );
-
-    $management = menu_tree_all_data('management');
-    $user = menu_tree_all_data('user-menu');
-
-    // Combine management and user menus
-    $jarvis['menus'] = array_merge_recursive($management, $user);
 
    return 'var jarvis = ' . json_encode($jarvis) . ';'; //, JSON_PRETTY_PRINT
   }
 
+  /**
+   * Perform a search
+   * Echos search results to prevent the Drupal templates from being output
+   */
   public function search() {
-    $_REQUEST['q'] = isset($_REQUEST['q']) ? $_REQUEST['q'] : '';
-    
-    $srch_qry = $_REQUEST['q'];
+    $q = isset($_REQUEST['q']) ? $_REQUEST['q'] : '';
     // @see https://api.drupal.org/api/drupal/includes!database!database.inc/function/db_like/7
-    $srch_escaped_spaces = str_replace(' ', '%', db_like($srch_qry));
+    $q_spaces = str_replace(' ', '%', db_like($srch_qry));
 
-    $arrRtrn = array(
+    $response = array(
       'results' => array(), 
       'types' => array(), 
     );
 
-    if ( strlen($srch_qry) ) {
+    if ( strlen(trim($q)) ) {
       // Search DB for nodes with related titles.  Sort by relevance of search phrase related to title.
-      $strQry = "   SELECT \n" . 
-                "     n.nid AS 'id', \n" . 
-                "     n.type AS 'type', \n" . 
-                "     n.title AS 'title', \n" . 
-                "     'node' AS 'kind',  \n" . 
-                "     n.`status`, \n" . 
-                "      ((LENGTH(n.title) - LENGTH(REPLACE(LOWER(n.title), LOWER(:q), ''))) / LENGTH(n.title)) AS 'relv_title' \n" . 
-                "   FROM \n" . 
-                "     {node} n \n" . 
-                "     LEFT JOIN {taxonomy_index} ti ON n.nid = ti.nid \n" . 
-                "     LEFT JOIN {taxonomy_term_data} ttd ON ti.tid = ttd.tid \n" . 
-                "   WHERE \n" . 
-                "     n.title LIKE :qtitle OR \n" . 
-                "     n.nid = :qnid OR \n" . 
-                "     ttd.`name` LIKE :qname \n" . 
-                "   ORDER BY relv_title DESC";
+      $query = "SELECT \n" . 
+                "  n.nid AS 'id', \n" . 
+                "  n.type AS 'type', \n" . 
+                "  n.title AS 'title', \n" . 
+                "  ((LENGTH(n.title) - LENGTH(REPLACE(LOWER(n.title), LOWER(:q), ''))) / LENGTH(n.title)) AS 'relv_title' \n" . 
+                "FROM \n" . 
+                "  {node} n \n" . 
+                "  LEFT JOIN {taxonomy_index} ti ON n.nid = ti.nid \n" . 
+                "  LEFT JOIN {taxonomy_term_data} ttd ON ti.tid = ttd.tid \n" . 
+                "WHERE \n" . 
+                "  n.title LIKE :qtitle OR \n" . 
+                "  n.nid = :qnid OR \n" . 
+                "  ttd.`name` LIKE :qname \n" . 
+                "ORDER BY relv_title DESC";
 
       // @see https://api.drupal.org/api/drupal/includes!database!database.inc/function/db_query/7
-      $result = db_query($strQry, array(
-        ':q' => $srch_qry,
-        ':qtitle' => '%' . $srch_escaped_spaces . '%',
-        ':qnid' => $srch_qry,
-        ':qname' => '%' . $srch_escaped_spaces . '%',
+      $result = db_query($query, array(
+        ':q' => $q,
+        ':qtitle' => '%' . $q_spaces . '%',
+        ':qnid' => $q,
+        ':qname' => '%' . $q_spaces . '%',
       ));
 
       // DEBUGGING
-      $arrRtrn['query'] = $strQry;
+      $response['query'] = $query;
 
       $results = $result->fetchAll();
 
-      foreach($results as $itmIdx => $itmRrd) {
-        $tmpType = $itmRrd->type;
-        $tmpKind = $itmRrd->kind;
-        $tmpId = $itmRrd->id;
+      foreach($results as $index => $item) {
+        $type = $item->type;
+        $id = $item->id;
 
-        if( !isset($arrRtrn['types'][ $tmpType ]) ){
-          $arrRtrn['types'][ $tmpType ] = array();
+        if(!isset($arrRtrn['types'][$type])){
+          $response['types'][$type] = array();
         }
+        $response['types'][$type][$id] = $index;
 
-        $arrRtrn['types'][ $tmpType ][ $tmpId ] = $itmIdx;
-
-        $tmpArr = (array) $itmRrd;
-
-        // Build link for nodes
-        if($tmpArr['kind'] == 'node') {
-          $nodeEdit = $tmpArr['id'];
-          $tmpArr['edit_url'] = 'node/' . $nodeEdit . '/edit';
-        }
+        $item = (array) $item;
+        $item['edit_url'] = url('node/' . $id . '/edit');
         
-        $arrRtrn['results'][] = $tmpArr;
+        $response['results'][] = $item;
       }
     }
 
-    echo json_encode($arrRtrn);
+    echo json_encode($response);
+  }
+
+  /**
+   * Parse through menus to get menu_items
+   * @return array
+   */
+  public function menu_items() {
+    $menu_items = array();
+    $menus = array('management', 'user-menu');
+    $data = array();
+    $tree = array();
+
+    // Allows modules to add additional menus
+    drupal_alter('jarvis_menus', $menus);
+
+    // Get all menu items
+    foreach ($menus as $menu) {
+      $data = menu_tree_all_data($menu);
+      foreach ($data as $tree) {
+        $menu_items = array_merge($menu_items, $this->_menu_items($tree['below']));
+      }
+    }
+    
+    return $menu_items;
+  }
+
+  /**
+   * Internal function to parse through menu trees
+   * @param array $tree
+   * @return array
+   */
+  public function _menu_items($tree) {
+    static $id = 0;
+    // Prevent runaway menus
+    if ( $id++ > 1000 ) return array();
+
+    $menu_items = array();
+
+    foreach ($tree as $menu_item) {
+      if (!empty($menu_item['link']['link_path'])) {
+        $menu_items[] = array(
+          'type' => 'Menu Item',
+          'title' => $menu_item['link']['link_title'],
+          'edit_url' => url($menu_item['link']['link_path'])
+        );
+      }
+      if (!empty($menu_item['below'])) {
+        $menu_items = array_merge($menu_items, $this->_menu_items($menu_item['below']));
+      }
+    }
+
+    return $menu_items;
   }
 
 }
@@ -142,11 +195,15 @@ function jarvis_init() {
  * Menu hook
  */
 function jarvis_menu() {
+  if (!user_is_logged_in()) 
+    return;
+
+  Jarvis::instance()->init();
 
   $items = array();
   // Jarvis node search
-  $items['jarvis/autocomplete'] = array(
-    'page callback' => 'jarvis_search',
+  $items[Jarvis::instance()->ajax_search] = array(
+    'page callback' => '_jarvis_search',
     'access arguments' => array('access content'),
     'type' => MENU_CALLBACK
   );
@@ -157,6 +214,6 @@ function jarvis_menu() {
 /**
  * Internal Jarvis Search
  */
-function jarvis_search() {
+function _jarvis_search() {
   return Jarvis::instance()->search();
 }
