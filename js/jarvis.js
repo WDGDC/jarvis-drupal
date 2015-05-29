@@ -1,7 +1,5 @@
 (function($, jarvis) {
 
-	var hsMenuHrefs = [];
-	var newContent = [];
 	var interval;
 	var jarvisAjax = null;
 
@@ -12,92 +10,7 @@
 		return str.match(a) == null ? 0 : str.match(a).length; //Return the length of the array of matches
 	}
 
-	var first_set = false;
-	var NL = "\n";
-
-	/* Build a searchable menu for Jarvis. */ 
-	function fnJarvisMenu(arrDurpalMenu, depth){
-		var arrMenuToReturn = [];
-		var strMarkup = "";
-		depth = (typeof depth !== 'undefined') ? depth : 0;
-
-		$.each(arrDurpalMenu, function(idx, itm){
-			var strLinkName = itm['link']['link_title'];
-
-			arrMenuToReturn[strLinkName] = {
-				'key' : idx,
-				'href' : Drupal.settings.basePath + itm.link.link_path,
-				'children' : null,
-				'arguments' : arguments
-			}
-
-			strSpaces = Array(depth).join(' ');
-
-			//strMarkup += strSpaces + '<ul style="margin-left:'+ (depth * 15) +'px" >'+ NL;
-			strMarkup += strSpaces +'<li><a href="'+ arrMenuToReturn[strLinkName]['href'] +'">'+ strLinkName +'</a></li>'+ NL;
-
-			if(typeof itm['below'] !== 'undefined'){
-				child_item = fnJarvisMenu(itm['below'], (depth + 1));
-				arrMenuToReturn[strLinkName]['children'] = child_item;
-
-				strMarkup += strSpaces + '<li>'+ NL;
-				strMarkup += child_item['markup_string'] + NL;
-				strMarkup += strSpaces + '</li>'+ NL;
-			}
-
-			strMarkup += strSpaces +'</ul>'+ NL;
-		});
-
-
-		arrMenuToReturn['markup_string'] = strMarkup;
-
-		return arrMenuToReturn;
-	}
-
-
 	$(document).ready(function(e) {
-
-		function fnGetMenuItems(){
-			$('#idJarvisMenu a').each(function(idx, itm){
-				var jThis = $(itm);
-
-				var titlePrefix = '';
-
-				jThis.parents('.wp-submenu, .ab-sub-wrapper').prev('.wp-has-submenu, .ab-item').each(function(idx){
-					if(idx > 0){
-						titlePrefix += ' :: ';
-					}
-
-					titlePrefix += $(this).text();
-				});
-
-				titlePrefix = titlePrefix != '' ? titlePrefix +': ' : '';
-
-				hsMenuHrefs.push({
-					"id": null,
-					"title": titlePrefix + jThis.text() ,
-					"type": "Menu Item",
-					"kind": "href",
-					"relv_id": "0",
-					"relv_title": "0",
-					"relv_type": "0",
-					"edit_url": jThis.attr('href')
-				});
-			});
-
-			if(hsMenuHrefs.length <= 0){
-			  setTimeout(fnGetMenuItems, 20);
-			}
-		}
-
-
-		//--- List of Menu Links ---//
-			fnGetMenuItems();
-
-		//--- backwards compatiblity addition ---//
-		$.fn.extend({
-			propAttr: $.fn.prop || $.fn.attr
-		});
 
 		$('body').keydown(function(e) {
 			var target  = e.target || e.srcElement;
@@ -148,20 +61,18 @@
 				this.source = function(request, response) {
 					var newContent = [];
 
-					$.each(hsMenuHrefs, function(idx, itm){
-						if(count(itm.title, request.term) > 0){
-							newContent.push(itm);
+					$.each(jarvis.menu_items, function(idx, item){
+						if(count(item.title, request.term) > 0){
+							newContent.push(item);
 						}
 					});
 		
 		      		response(newContent);
 
-					if (interval) {
+					if (interval)
 						clearTimeout(interval);
-					}
+					
 					interval = setTimeout(function(){
-						var term = request.term;
-
 						if(jarvisAjax) {
 							jarvisAjax.abort();
 							jarvisAjax = null;
@@ -169,11 +80,11 @@
 
 						jarvisAjax = $.ajax({
 						  type: "POST",
-						  url: Drupal.settings.basePath + ajaxurl,
-						  cache: false, 
+						  url: jarvis.ajax_search,
+						  cache: true, 
 						  data: {
-						  	'q': term
-						  }, 
+						  	'q': request.term
+						  },
 						  success: function(strData){
 						  	jarvisData = JSON.parse(strData);
 
@@ -181,13 +92,12 @@
 									jarvisData.results = [];
 
 								// --- Remove search spinner from search --- //
-									$('#jarvis-text').removeClass('working');
+								$('#jarvis-text').removeClass('working');
 
 								response( newContent.concat(jarvisData.results) );
 
 							}
 						});
-
 					}, 100);
 
 				};
@@ -200,9 +110,7 @@
 				}
 				var itemType = item.type;
 				var itemType = itemType.replace('_', ' ');
-				if(item.kind == 'node') {
-					item.edit_url = '/' + item.edit_url;
-				}
+				
 				return $('<li></li>').data('item.autocomplete', item).append('<a class="' + item.type + '" href="' + item.edit_url + '">' + item.title + '<br><span class="jarvis-type">Type: ' + itemType + '</span></a>')
 						.appendTo(ul);
 			}
@@ -276,11 +184,6 @@
 			}
 
 		};
-
-		var jarvisDataProcessed = fnJarvisMenu(jarvis.menus);
-		$(document.body).append('<div style="display:none" id="idJarvisMenu">'+ jarvisDataProcessed['markup_string'] +'</div>');
-		delete jarvis.menus;
-		delete jarvisDataProcessed;
 	});
 
 })(jQuery, jarvis || {});

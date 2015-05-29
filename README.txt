@@ -25,6 +25,7 @@ By using the Jarvis hotkey, “/“ (backslash) a search overlay will be prompte
 
 
 ** AUTHORS **
+Doug Axelrod
 David Everett
 Kurtis Shaner
 Grant Skalak
