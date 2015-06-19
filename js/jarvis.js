@@ -23,14 +23,14 @@
 
 			// key esc
 			if (key === esc) {
-				WpJarvisPlugin.close();
+				JarvisSearch.close();
 				return;
 			}
 
 			// key hotkey
 			if (tagName !== 'INPUT' && key === jarvis.hotkey) {
 				e.preventDefault();
-				WpJarvisPlugin.init();
+				JarvisSearch.init();
 				return;
 			}
 		});
@@ -43,7 +43,7 @@
 			if ($target.is(container) || $target.parents(container).length)
 				return;
 
-			WpJarvisPlugin.close();
+			JarvisSearch.close();
 		});
 
 
@@ -111,12 +111,19 @@
 				var itemType = item.type;
 				var itemType = itemType.replace('_', ' ');
 				
-				return $('<li></li>').data('item.autocomplete', item).append('<a class="' + item.type + '" href="' + item.edit_url + '">' + item.title + '<br><span class="jarvis-type">Type: ' + itemType + '</span></a>')
+				return $('<li></li>').data('item.autocomplete', item)
+						.append(''
+							+ '<a class="' + item.type + '" href="' + item.edit_url + '">'
+							 	+ item.title
+							 	+ '<br>'
+							 	+ '<span class="jarvis-type">Type: ' + itemType + '</span>'
+						 	+ '</a>'
+						 )
 						.appendTo(ul);
 			}
 		});
 
-		WpJarvisPlugin = {
+		JarvisSearch = {
 			inited: false,
 
 			close: function() {
@@ -172,10 +179,10 @@
 			},
 
 			init: function() {
-				if (!WpJarvisPlugin.inited) {
-					WpJarvisPlugin.create();
+				if (!JarvisSearch.inited) {
+					JarvisSearch.create();
 
-					WpJarvisPlugin.inited = true;
+					JarvisSearch.inited = true;
 					return;
 				}
 
