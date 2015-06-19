@@ -135,7 +135,10 @@ class Jarvis {
     foreach ($menus as $menu) {
       $data = menu_tree_all_data($menu);
       foreach ($data as $tree) {
-        $menu_items = array_merge($menu_items, $this->_menu_items($tree['below']));
+        $menu_items = array_merge(
+          $menu_items, 
+          $this->_menu_items($tree['below'])
+        );
       }
     }
     
@@ -147,7 +150,7 @@ class Jarvis {
    * @param array $tree
    * @return array
    */
-  public function _menu_items($tree) {
+  public function _menu_items($tree, $parent = null) {
     static $id = 0;
     // Prevent runaway menus
     if ( $id++ > 1000 ) return array();
@@ -155,15 +158,21 @@ class Jarvis {
     $menu_items = array();
 
     foreach ($tree as $menu_item) {
+      $menu_item_parent = $parent;
+
       if (!empty($menu_item['link']['link_path'])) {
+        $menu_item_parent .= $menu_item['link']['link_title'] . ' » ';
         $menu_items[] = array(
           'type' => 'Menu Item',
-          'title' => $menu_item['link']['link_title'],
+          'title' => $parent . $menu_item['link']['link_title'],
           'edit_url' => url($menu_item['link']['link_path'])
         );
       }
       if (!empty($menu_item['below'])) {
-        $menu_items = array_merge($menu_items, $this->_menu_items($menu_item['below']));
+        $menu_items = array_merge(
+            $menu_items, 
+            $this->_menu_items($menu_item['below'], $menu_item_parent)
+        );
       }
     }
 
