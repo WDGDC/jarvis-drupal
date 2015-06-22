@@ -9,14 +9,14 @@
  */
 class Jarvis {
 
-  private $init = false;
-	public $hotkey;
+  private $init = FALSE;
+  public $hotkey;
   public $ajax_search;
 
   /**
    * Singleton instance
    */
-  private static $instance = false;
+  private static $instance = FALSE;
 
   /**
    * Singleton
@@ -33,7 +33,7 @@ class Jarvis {
    */
   public function init() {
     if ( $this->init ) return;
-    $this->init = true;
+    $this->init = TRUE;
 
     // Hotkey is '/'
     $this->hotkey = 191;
@@ -99,11 +99,11 @@ class Jarvis {
 
       $results = $result->fetchAll();
 
-      foreach($results as $index => $item) {
+      foreach ($results as $index => $item) {
         $type = $item->type;
         $id = $item->id;
 
-        if(!isset($arrRtrn['types'][$type])){
+        if (!isset($arrRtrn['types'][$type])) {
           $response['types'][$type] = array();
         }
         $response['types'][$type][$id] = $index;
@@ -150,7 +150,7 @@ class Jarvis {
    * @param array $tree
    * @return array
    */
-  public function _menu_items($tree, $parent = null) {
+  public function _menu_items($tree, $parent = NULL) {
     static $id = 0;
     // Prevent runaway menus
     if ( $id++ > 1000 ) return array();

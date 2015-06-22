@@ -1,3 +1,7 @@
+/**
+ * @file
+ * Jarvis Search
+ */
 (function($, jarvis) {
 
 	var interval;
