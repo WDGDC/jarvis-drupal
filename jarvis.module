@@ -9,14 +9,14 @@
  */
 class Jarvis {
 
-  private $init = false;
-	public $hotkey;
+  private $init = FALSE;
+  public $hotkey;
   public $ajax_search;
 
   /**
    * Singleton instance
    */
-  private static $instance = false;
+  private static $instance = FALSE;
 
   /**
    * Singleton
@@ -33,7 +33,7 @@ class Jarvis {
    */
   public function init() {
     if ( $this->init ) return;
-    $this->init = true;
+    $this->init = TRUE;
 
     // Hotkey is '/'
     $this->hotkey = 191;
@@ -84,7 +84,8 @@ class Jarvis {
                 "  n.title LIKE :qtitle OR \n" . 
                 "  n.nid = :qnid OR \n" . 
                 "  ttd.`name` LIKE :qname \n" . 
-                "ORDER BY relv_title DESC";
+                "ORDER BY relv_title DESC \n" .
+                "LIMIT 20";
 
       // @see https://api.drupal.org/api/drupal/includes!database!database.inc/function/db_query/7
       $result = db_query($query, array(
@@ -99,11 +100,11 @@ class Jarvis {
 
       $results = $result->fetchAll();
 
-      foreach($results as $index => $item) {
+      foreach ($results as $index => $item) {
         $type = $item->type;
         $id = $item->id;
 
-        if(!isset($arrRtrn['types'][$type])){
+        if (!isset($arrRtrn['types'][$type])) {
           $response['types'][$type] = array();
         }
         $response['types'][$type][$id] = $index;
@@ -141,6 +142,12 @@ class Jarvis {
         );
       }
     }
+
+    // Merge together with additional menu items
+    $menu_items = array_merge($menu_items, $this->_additional_menu_items());
+
+    // Allow modules to alter final menu items
+    drupal_alter('jarvis_menu_items', $menu_items);
     
     return $menu_items;
   }
@@ -150,7 +157,7 @@ class Jarvis {
    * @param array $tree
    * @return array
    */
-  public function _menu_items($tree, $parent = null) {
+  public function _menu_items($tree, $parent = NULL) {
     static $id = 0;
     // Prevent runaway menus
     if ( $id++ > 1000 ) return array();
@@ -158,6 +165,14 @@ class Jarvis {
     $menu_items = array();
 
     foreach ($tree as $menu_item) {
+      // Skip inaccessible, invisible links, or links that point their parent.
+      if (!$menu_item['link']['access'] 
+        || $menu_item['link']['type'] & MENU_LINKS_TO_PARENT 
+        || $menu_item['link']['type'] == MENU_VISIBLE_IN_BREADCRUMB 
+        || $menu_item['link']['hidden'] == 1) {
+        continue;
+      }
+
       $menu_item_parent = $parent;
 
       if (!empty($menu_item['link']['link_path'])) {
@@ -174,6 +189,32 @@ class Jarvis {
             $this->_menu_items($menu_item['below'], $menu_item_parent)
         );
       }
+    }
+
+    return $menu_items;
+  }
+
+  public function _additional_menu_items() {
+    $menu_items = array();
+
+    // Content Types
+    if (user_access('administer content types')) {
+      foreach ( node_type_get_types() as $node_type => $node ) {
+        $menu_items[] = array(
+          'type' => 'Menu Item',
+          'title' => 'Structure » Content Types » ' . $node->name,
+          'edit_url' => url('admin/structure/types/manage/' . $node_type)
+        );
+      }
+    }
+
+    // Flush Cache
+    if (user_access('flush caches')) {
+      $menu_items[] = array(
+        'type' => 'Menu Item',
+        'title' => 'Flush all caches',
+        'edit_url' => url('array')
+      );
     }
 
     return $menu_items;
