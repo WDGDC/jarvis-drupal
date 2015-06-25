@@ -136,7 +136,7 @@
 			},
 
 			create: function(){
-				$('<div id="jarvis-overlay"></div><div id="jarvis-container"><input type="text" id="jarvis-text" autofocus /></div>').appendTo(document.body);
+				$('<div id="jarvis-overlay"></div><div id="jarvis-container"><input type="text" id="jarvis-text" autofocus /><div id="jarvis-footer"></div></div>').appendTo(document.body);
 
 				var $overlay = $('#jarvis-overlay');
 				var $field   = $('#jarvis-text');
@@ -148,30 +148,21 @@
 					jarvis: true,
 					delay: 0,
 
-					focus: function(e, ui) {
-						// return false;
-					},
-
 					response: function(e, ui) {
 						var text = 'Found ' + ui.content.length + ' results';
-						if ($('#jarvis-footer').length)
-							$('#jarvis-footer').text(text).show();
-						else
-							$('#jarvis-container').append('<div id="jarvis-footer">' + text + '</div>');
+						$('#jarvis-footer').text(text).show();
 					},
 
 					select: function(e, ui) {
 						document.location.href = ui.item.edit_url || ui.item.perma_url;
-
-						// return false;
 					}, 
 
 					search: function() {
 						$(this).addClass('working');
 					},
 
-					hideSpinner: function() {
-						$(this).removeClass('working');
+					close: function() {
+						$('#jarvis-footer').hide();
 					}
 				});
 
@@ -191,7 +182,7 @@
 				}
 
 				$('#jarvis-overlay, #jarvis-container').show();
-				$('#jarvis-text').focus();
+				$('#jarvis-text').focus().select().autocomplete('search');
 			}
 
 		};
