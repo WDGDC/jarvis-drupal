@@ -199,22 +199,66 @@ class Jarvis {
 
     // Content Types
     if (user_access('administer content types')) {
-      foreach ( node_type_get_types() as $node_type => $node ) {
+      foreach (node_type_get_types() as $node_type => $node) {
         $menu_items[] = array(
-          'type' => 'Menu Item',
+          'type' => 'Content Type',
           'title' => 'Structure » Content Types » ' . $node->name,
           'edit_url' => url('admin/structure/types/manage/' . $node_type)
         );
       }
     }
 
+    // Taxonomies
+    if (user_access('administer taxonomy')) {
+      foreach (taxonomy_vocabulary_get_names() as $name => $taxonomy) {
+        $menu_items[] = array(
+          'type' => 'Taxonomy',
+          'title' => 'Structure » Taxonomy » ' . $taxonomy->name,
+          'edit_url' => url('admin/structure/taxonomy/' . $name)
+        );
+      }
+    }
+
+    // Nodequeues
+    if (module_exists('nodequeue') && user_access('administer nodequeue')) {
+      foreach (nodequeue_load_subqueues(nodequeue_get_all_qids()) as $subqueue) {
+        $menu_items[] = array(
+          'type' => 'Nodequeue',
+          'title' => 'Structure » Nodequeues » ' . $subqueue->title,
+          'edit_url' => url('admin/structure/nodequeue/' . $subqueue->qid . '/view/' . $subqueue->sqid)
+        );
+      }
+    }
+
+    // Views
+    if (module_exists('views') && user_access('administer views')) {
+      foreach (views_get_enabled_views() as $name => $view) {
+        $menu_items[] = array(
+          'type' => 'View',
+          'title' => 'Structure » Views » ' . $view->human_name,
+          'edit_url' => url('admin/structure/views/view/' . $name)
+        );
+      }
+    }
+
+    // Context
+    if (module_exists('context') && user_access('administer contexts')) {
+      foreach (context_enabled_contexts() as $name => $context) {
+        $menu_items[] = array(
+          'type' => 'Context',
+          'title' => 'Structure » Context » ' . ($context->tag ? $context->tag . ' » ' : '') . $name,
+          'edit_url' => url('admin/structure/context/' . $name . '/edit')
+        );
+      }
+    }
+
     // Flush Cache
     if (user_access('flush caches')) {
-      $menu_items[] = array(
-        'type' => 'Menu Item',
-        'title' => 'Flush all caches',
-        'edit_url' => url('array')
-      );
+      // $menu_items[] = array(
+      //   'type' => 'Menu Item',
+      //   'title' => 'Flush all caches',
+      //   'edit_url' => url()
+      // );
     }
 
     return $menu_items;
