@@ -247,7 +247,7 @@ class Jarvis {
         $menu_items[] = array(
           'type' => 'Context',
           'title' => 'Structure » Context » ' . ($context->tag ? $context->tag . ' » ' : '') . $name,
-          'edit_url' => url('admin/structure/context/' . $name . '/edit')//
+          'edit_url' => url('admin/structure/context/' . $name . '/edit')
         );
       }
     }
