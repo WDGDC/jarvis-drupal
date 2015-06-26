@@ -9,11 +9,6 @@
 
 	var ajaxurl = 'jarvis/autocomplete';
 
-	function count(str,ma){
-		var a = new RegExp(ma,'gi'); // Create a RegExp that searches for the text ma globally
-		return str.match(a) == null ? 0 : str.match(a).length; //Return the length of the array of matches
-	}
-
 	$(document).ready(function(e) {
 
 		$('body').keydown(function(e) {
@@ -65,8 +60,14 @@
 				this.source = function(request, response) {
 					var newContent = [];
 
+					// Menu item matches
+					var search = request.term;
+					search = search.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&"); // Escape any special characters @link http://stackoverflow.com/a/6969486
+					search = search.replace(/ /g, '.*'); // Convert spaces to wildcards (match backend query)
+					search = new RegExp(search, 'i'); // Convert to case insensitive search regex
+
 					$.each(jarvis.menu_items, function(idx, item){
-						if(count(item.title, request.term) > 0){
+						if (item.title.match(search)) {
 							newContent.push(item);
 						}
 					});
@@ -113,7 +114,7 @@
 					return;
 				}
 				var itemType = item.type;
-				var itemType = itemType.replace('_', ' ');
+				var itemType = itemType.replace(/_[a-z]/g, function(txt){ return ' ' + txt.substr(1).toUpperCase(); });
 				
 				return $('<li></li>').data('item.autocomplete', item)
 						.append(''
