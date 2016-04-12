@@ -1,0 +1,7 @@
+Jarvis 7.x-0.1, 2016-04-12
+--------------------------
+Fixed description to refer to "/" as a forward slash.
+
+Jarvis 7.x-0.1, 2016-04-12
+--------------------------
+Initial release of module on Drupal.org

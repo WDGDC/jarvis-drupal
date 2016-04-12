@@ -60,63 +60,160 @@ class Jarvis {
    * Echos search results to prevent the Drupal templates from being output
    */
   public function search() {
-    $q = isset($_REQUEST['q']) ? $_REQUEST['q'] : '';
-    // @see https://api.drupal.org/api/drupal/includes!database!database.inc/function/db_like/7
-    $q_spaces = str_replace(' ', '%', db_like($srch_qry));
+    $q = isset($_REQUEST['q']) ? trim($_REQUEST['q']) : '';
 
     $response = array(
-      'results' => array(), 
-      'types' => array(), 
+      'results' => array()
     );
 
-    if ( strlen(trim($q)) ) {
-      // Search DB for nodes with related titles.  Sort by relevance of search phrase related to title.
-      $query = "SELECT \n" . 
-                "  n.nid AS 'id', \n" . 
-                "  n.type AS 'type', \n" . 
-                "  n.title AS 'title', \n" . 
-                "  ((LENGTH(n.title) - LENGTH(REPLACE(LOWER(n.title), LOWER(:q), ''))) / LENGTH(n.title)) AS 'relv_title' \n" . 
-                "FROM \n" . 
-                "  {node} n \n" . 
-                "  LEFT JOIN {taxonomy_index} ti ON n.nid = ti.nid \n" . 
-                "  LEFT JOIN {taxonomy_term_data} ttd ON ti.tid = ttd.tid \n" . 
-                "WHERE \n" . 
-                "  n.title LIKE :qtitle OR \n" . 
-                "  n.nid = :qnid OR \n" . 
-                "  ttd.`name` LIKE :qname \n" . 
-                "ORDER BY relv_title DESC \n" .
-                "LIMIT 20";
+    if ( strlen($q) ) {
+      // Split words on whitespace
+      $q_words = preg_split('/\s+/', $q, NULL, PREG_SPLIT_NO_EMPTY);
 
-      // @see https://api.drupal.org/api/drupal/includes!database!database.inc/function/db_query/7
-      $result = db_query($query, array(
-        ':q' => $q,
-        ':qtitle' => '%' . $q_spaces . '%',
-        ':qnid' => $q,
-        ':qname' => '%' . $q_spaces . '%',
-      ));
+      $results = array_merge($this->node_search($q, $q_words), $this->term_search($q, $q_words));
+      usort($results, function ($a, $b) {
+        if ($a['jarvis_sort'] == $b['jarvis_sort']) {
+          if (strlen($a['title']) == strlen($b['title'])) return 0;
+          return strlen($a['title']) < strlen($b['title']) ? -1 : 1;
+        }
+        return $a['jarvis_sort'] > $b['jarvis_sort'] ? -1 : 1;
+      });
+      $response['results'] = $results;
 
       // DEBUGGING
-      $response['query'] = $query;
+      $response['q'] = $q;
+      $response['q_words'] = $q_words;
 
-      $results = $result->fetchAll();
-
-      foreach ($results as $index => $item) {
-        $type = $item->type;
-        $id = $item->id;
-
-        if (!isset($arrRtrn['types'][$type])) {
-          $response['types'][$type] = array();
-        }
-        $response['types'][$type][$id] = $index;
-
-        $item = (array) $item;
-        $item['edit_url'] = url('node/' . $id . '/edit');
-        
-        $response['results'][] = $item;
-      }
     }
 
     echo json_encode($response);
+  }
+
+  protected function node_search($q, $q_words) {
+    // Sort by relevance of search phrase related to title.
+    $relevance = "0 \n";
+    foreach ($q_words as $i => $q_word) {
+      // Keyword matches
+      $relevance .= "+ if(n.title REGEXP :q{$i}_full, 1, 0) \n";
+      $relevance .= "+ if(n.title REGEXP :q{$i}_start, 1, 0) \n";
+    }
+    $relevance .= " as 'jarvis_sort' \n";
+
+    // Search for matching titles or nid
+    $where = "";
+    // Only need to search nid if a single word
+    if (count($q_words) === 1) {
+      $where .= "n.nid = :q OR \n";
+    }
+    $where .= "(";
+    foreach ($q_words as $i => $q_word) {
+      $where .= "n.title REGEXP :q{$i}_contain AND ";
+    }
+    $where .= "1 = 1) \n";
+
+    // Query parameters
+    $params = array();
+    if (count($q_words) === 1) {
+      $params[':q'] = $q;
+    }
+    foreach ($q_words as $i => $q_word) {
+      $q_word_escaped = preg_quote($q_word);
+      $params[':q' . $i . '_full'] = '[[:<:]]' . $q_word_escaped . '[[:>:]]';
+      $params[':q' . $i . '_start'] = '[[:<:]]' . $q_word_escaped;
+      $params[':q' . $i . '_contain'] = $q_word_escaped;
+    }
+
+    $query = "SELECT DISTINCT \n" . 
+              "  n.nid AS 'id', \n" . 
+              "  n.type AS 'type', \n" . 
+              "  n.title AS 'title', \n" . 
+              $relevance .
+              "FROM \n" . 
+              "  {node} n \n" . 
+              "WHERE \n" .
+              $where . 
+              "ORDER BY \n" .
+              "  jarvis_sort DESC, \n" . // Jarvis match best to worst
+              "  LENGTH(LOWER(n.title)), \n" . // Title length shortest to longest
+              "  n.changed DESC \n" . // Updated most recently to oldest
+              "LIMIT 20";
+
+    // @see https://api.drupal.org/api/drupal/includes!database!database.inc/function/db_query/7
+    $result = db_query($query, $params);
+
+    $results = $result->fetchAll();
+
+    $response = array();
+    foreach ($results as $index => $item) {
+      $id = $item->id;
+
+      $item = (array) $item;
+      $item['edit_url'] = url('node/' . $id . '/edit');
+      
+      $response[] = $item;
+    }
+
+    return $response;
+  }
+
+  protected function term_search($q, $q_words) {
+    // Sort by relevance of search phrase related to title.
+    $relevance = "0 \n";
+    foreach ($q_words as $i => $q_word) {
+      // Keyword matches
+      $relevance .= "+ if(t.name REGEXP :q{$i}_full, 1, 0) \n";
+      $relevance .= "+ if(t.name REGEXP :q{$i}_start, 1, 0) \n";
+    }
+    $relevance .= " as 'jarvis_sort' \n";
+
+    // Search for matching term names
+    $where = "(";
+    foreach ($q_words as $i => $q_word) {
+      $where .= "t.name REGEXP :q{$i}_contain AND ";
+    }
+    $where .= "1 = 1) \n";
+
+    // Query parameters
+    $params = array();
+    foreach ($q_words as $i => $q_word) {
+      $q_word_escaped = preg_quote($q_word);
+      $params[':q' . $i . '_full'] = '[[:<:]]' . $q_word_escaped . '[[:>:]]';
+      $params[':q' . $i . '_start'] = '[[:<:]]' . $q_word_escaped;
+      $params[':q' . $i . '_contain'] = $q_word_escaped;
+    }
+
+    $query = "SELECT DISTINCT \n" . 
+              "  t.tid AS 'id', \n" . 
+              "  v.name AS 'type', \n" . 
+              "  t.name AS 'title', \n" . 
+              $relevance .
+              "FROM \n" . 
+              "  {taxonomy_term_data} t \n" . 
+              "  LEFT JOIN {taxonomy_vocabulary} v ON t.vid = v.vid \n" . 
+              "WHERE \n" .
+              $where . 
+              "ORDER BY \n" .
+              "  jarvis_sort DESC, \n" . // Jarvis match best to worst
+              "  LENGTH(LOWER(t.name)) \n" . // Title length shortest to longest
+              "LIMIT 20";
+
+    // @see https://api.drupal.org/api/drupal/includes!database!database.inc/function/db_query/7
+    $result = db_query($query, $params);
+
+    $results = $result->fetchAll();
+
+    $response = array();
+    foreach ($results as $index => $item) {
+      $item->type .= ' Term';
+      $id = $item->id;
+
+      $item = (array) $item;
+      $item['edit_url'] = url('taxonomy/term/' . $id . '/edit');
+      
+      $response[] = $item;
+    }
+
+    return $response;
   }
 
   /**
@@ -167,8 +264,7 @@ class Jarvis {
     foreach ($tree as $menu_item) {
       // Skip inaccessible, invisible links, or links that point their parent.
       if (!$menu_item['link']['access'] 
-        || $menu_item['link']['type'] & MENU_LINKS_TO_PARENT 
-        || $menu_item['link']['type'] == MENU_VISIBLE_IN_BREADCRUMB 
+        || ($menu_item['link']['type'] & MENU_LINKS_TO_PARENT)
         || $menu_item['link']['hidden'] == 1) {
         continue;
       }
@@ -207,6 +303,16 @@ class Jarvis {
         );
       }
     }
+    foreach (node_type_get_types() as $node_type => $node) {
+      if (user_access('bypass node access') || user_access('create ' . $node_type . ' content')) {
+        $node_type = str_replace('_', '-', $node_type);
+        $menu_items[] = array(
+          'type' => 'Content',
+          'title' => 'Content » Add Content » ' . $node->name,
+          'edit_url' => url('node/add/' . $node_type)
+        );
+      }
+    }
 
     // Taxonomies
     if (user_access('administer taxonomy')) {
@@ -235,7 +341,7 @@ class Jarvis {
       foreach (views_get_enabled_views() as $name => $view) {
         $menu_items[] = array(
           'type' => 'View',
-          'title' => 'Structure » Views » ' . $view->human_name,
+          'title' => 'Structure » Views » ' . ( $view->human_name ? $view->human_name : $name ),
           'edit_url' => url('admin/structure/views/view/' . $name)
         );
       }
@@ -247,18 +353,9 @@ class Jarvis {
         $menu_items[] = array(
           'type' => 'Context',
           'title' => 'Structure » Context » ' . ($context->tag ? $context->tag . ' » ' : '') . $name,
-          'edit_url' => url('admin/structure/context/' . $name . '/edit')
+          'edit_url' => url('admin/structure/context/list/' . $name . '/edit')
         );
       }
-    }
-
-    // Flush Cache
-    if (user_access('flush caches')) {
-      // $menu_items[] = array(
-      //   'type' => 'Menu Item',
-      //   'title' => 'Flush all caches',
-      //   'edit_url' => url()
-      // );
     }
 
     return $menu_items;
@@ -270,7 +367,7 @@ class Jarvis {
  * Init hook
  */
 function jarvis_init() {
-  if (!user_is_logged_in()) 
+  if (!user_is_logged_in() || !user_access('use jarvis')) 
     return;
 
   Jarvis::instance()->init();
@@ -286,19 +383,30 @@ function jarvis_init() {
 }
 
 /**
+ * Perm hook
+ */
+function jarvis_permission() {
+  $items = array();
+
+  $items['use jarvis'] = array(
+    'title' => 'Use Jarvis Search',
+    'description' => 'Enable Jarvis menu and content search with the "/" hotkey.'
+  );
+
+  return $items;
+}
+
+/**
  * Menu hook
  */
 function jarvis_menu() {
-  if (!user_is_logged_in()) 
-    return;
-
   Jarvis::instance()->init();
 
   $items = array();
   // Jarvis node search
   $items[Jarvis::instance()->ajax_search] = array(
     'page callback' => '_jarvis_search',
-    'access arguments' => array('access content'),
+    'access arguments' => array('use jarvis'),
     'type' => MENU_CALLBACK
   );
   

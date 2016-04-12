@@ -58,21 +58,63 @@
 				}
 
 				this.source = function(request, response) {
-					var newContent = [];
+					var results = [];
 
 					// Menu item matches
-					var search = request.term;
-					search = search.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&"); // Escape any special characters @link http://stackoverflow.com/a/6969486
-					search = search.replace(/ /g, '.*'); // Convert spaces to wildcards (match backend query)
-					search = new RegExp(search, 'i'); // Convert to case insensitive search regex
+					var q = request.term;
+					var q_words = q.split(/\s+/g);
+					var q_words_regex = [];
+					var q_words_contain = [];
+					var boundry = '[^a-z0-9_]*'; // RegExp Word boundry
 
-					$.each(jarvis.menu_items, function(idx, item){
-						if (item.title.match(search)) {
-							newContent.push(item);
-						}
+					// Create regexes for search terms
+					$.each(q_words, function(i, q_word){
+						if (q_word.length === 0) return;
+						var q_word_escaped = q_word.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&"); // Escape any special characters @link http://stackoverflow.com/a/6969486
+
+						var q_contain = new RegExp(q_word_escaped, 'i'); // Convert to case insensitive search regex
+						q_words_contain.push(q_contain);
+						
+						var q_full = new RegExp(boundry + q_word_escaped + boundry, 'i'); // Convert to case insensitive search regex
+						var q_start = new RegExp(boundry + q_word_escaped, 'i'); // Convert to case insensitive search regex
+						q_words_regex.push(q_full, q_start);
 					});
-		
-		      		response(newContent);
+
+					// Match items 
+					$.each(jarvis.menu_items, function(i, item){
+						var contains = 0;
+						$.each(q_words_contain, function(j, q_word_contain){
+							if (item.title.match(q_word_contain)) {
+								contains += 1;
+							}
+						});
+						// Eliminate items which don't contain all words
+						if (contains !== q_words_contain.length) return;
+
+
+						var jarvis_sort = 0;
+						// Keyword match
+						$.each(q_words_regex, function(j, q_word_regex){
+							if (item.title.match(q_word_regex)) {
+								jarvis_sort += 1;
+							}
+						});
+						item.jarvis_sort = jarvis_sort; // Sorting key
+						results.push(item);
+					});
+
+					// Sort items
+					results.sort(function(a, b){
+						if (a.jarvis_sort === b.jarvis_sort && a.title.length === b.title.length) {
+							return 0; // Absolute tie
+						} else if ( a.jarvis_sort === b.jarvis_sort ) {
+							return a.title.length > b.title.length ? 1 : -1; // Greater is lower
+						}
+						return a.jarvis_sort > b.jarvis_sort ? -1 : 1; // Greater is higher
+					});
+
+					// Send response
+		      		response(results);
 
 					if (interval)
 						clearTimeout(interval);
@@ -99,7 +141,7 @@
 								// --- Remove search spinner from search --- //
 								$('#jarvis-text').removeClass('working');
 
-								response( newContent.concat(jarvisData.results) );
+								response( results.concat(jarvisData.results) );
 
 							}
 						});
