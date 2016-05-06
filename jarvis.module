@@ -144,7 +144,7 @@ class Jarvis {
     $results = $result->fetchAll();
 
     $response = array();
-    foreach ($results as $index => $item) {
+    foreach ($results as $item) {
       $id = $item->id;
 
       $item = (array) $item;
@@ -203,7 +203,7 @@ class Jarvis {
     $results = $result->fetchAll();
 
     $response = array();
-    foreach ($results as $index => $item) {
+    foreach ($results as $item) {
       $item->type .= ' Term';
       $id = $item->id;
 
@@ -235,7 +235,7 @@ class Jarvis {
       foreach ($data as $tree) {
         $menu_items = array_merge(
           $menu_items, 
-          $this->_menu_items($tree['below'])
+          $this->_menu_items(array($tree))
         );
       }
     }
@@ -365,9 +365,10 @@ class Jarvis {
 
 /**
  * Init hook
+ * hook_page_build()
  */
-function jarvis_init() {
-  if (!user_is_logged_in() || !user_access('use jarvis')) 
+function jarvis_page_build() {
+  if (!user_access('use jarvis')) 
     return;
 
   Jarvis::instance()->init();
@@ -384,13 +385,15 @@ function jarvis_init() {
 
 /**
  * Perm hook
+ * hook_permission()
  */
 function jarvis_permission() {
   $items = array();
 
   $items['use jarvis'] = array(
     'title' => 'Use Jarvis Search',
-    'description' => 'Enable Jarvis menu and content search with the "/" hotkey.'
+    'description' => 'Enable Jarvis menu and content search with the "/" hotkey.',
+    'restrict access' => TRUE,
   );
 
   return $items;
@@ -398,6 +401,7 @@ function jarvis_permission() {
 
 /**
  * Menu hook
+ * hook_menu()
  */
 function jarvis_menu() {
   Jarvis::instance()->init();

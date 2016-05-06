@@ -26,7 +26,7 @@ None.
 
 -- CONFIGURATION --
 
-None (yet).
+* Add permission for "Use Jarvis Search" to applicable roles
 
 
 -- CUSTOMIZATION --
