@@ -8,9 +8,10 @@ You may search nodes, taxonomy terms, and administrative links, preventing you f
 
 By using the Jarvis hotkey, "/" (forward slash) a search overlay will be prompted.  Start by entering your search terms. You can search for node titles or admin pages and Jarvis will begin to autocomplete.  You can use mouse up/down to view desired result and hit Enter or use your mouse to scroll.
 
-## Installation
+## Installation & Configuration
 
 * Install just as any other module.
+* Add permission for "Use Jarvis Search" to applicable roles
 
 ## Feedback and questions
 
